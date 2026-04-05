@@ -1,58 +1,82 @@
 require("dotenv").config();
 
-const { Client, GatewayIntentBits, ChannelType } = require("discord.js");
 const {
-  joinVoiceChannel,
-  VoiceConnectionStatus,
-  entersState,
-} = require("@discordjs/voice");
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+} = require("discord.js");
+const { joinVoiceChannel } = require("@discordjs/voice");
+
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = "1111864772158296074";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 });
 
-const GUILD_ID = "1111864772158296074";
-const VOICE_CHANNEL_ID = "1254186619934740512";
-
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   try {
-    const guild = await client.guilds.fetch(GUILD_ID);
-    const channel = await guild.channels.fetch(VOICE_CHANNEL_ID);
+    const commands = [
+      new SlashCommandBuilder()
+        .setName("join")
+        .setDescription("Fait rejoindre le bot à ton salon vocal"),
+    ].map((command) => command.toJSON());
 
-    console.log(`Serveur ciblé: ${guild.name}`);
-    console.log(`Salon ciblé: ${channel?.name}`);
-    console.log(`Type du salon: ${channel?.type}`);
+    const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-    if (!channel) {
-      throw new Error("Salon introuvable.");
-    }
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
 
-    if (
-      channel.type !== ChannelType.GuildVoice &&
-      channel.type !== ChannelType.GuildStageVoice
-    ) {
-      throw new Error("L'ID ne correspond pas à un salon vocal.");
-    }
-
-    const connection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-      selfMute: false,
-    });
-
-    connection.on("stateChange", (oldState, newState) => {
-      console.log(`Voice state: ${oldState.status} -> ${newState.status}`);
-    });
-
-    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-    console.log("Connexion voc READY");
+    console.log("Commande /join enregistrée.");
   } catch (error) {
-    console.error("Erreur connexion voc :", error);
+    console.error("Erreur enregistrement commande :", error);
   }
 });
 
-client.login(process.env.TOKEN);
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "join") {
+    const channel = interaction.member?.voice?.channel;
+
+    if (!channel) {
+      return interaction.reply({
+        content: "Tu dois être dans un salon vocal.",
+        ephemeral: true,
+      });
+    }
+
+    try {
+      joinVoiceChannel({
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+        selfDeaf: true,
+        selfMute: false,
+      });
+
+      await interaction.reply({
+        content: `Je rejoins **${channel.name}**.`,
+        ephemeral: true,
+      });
+
+      console.log(`Bot a rejoint ${channel.name}`);
+    } catch (error) {
+      console.error("Erreur join voc :", error);
+
+      await interaction.reply({
+        content: "Impossible de rejoindre la voc.",
+        ephemeral: true,
+      });
+    }
+  }
+});
+
+client.login(TOKEN);
