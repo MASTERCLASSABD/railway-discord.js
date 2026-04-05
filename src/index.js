@@ -8,7 +8,7 @@ const client = new Client({
 });
 
 const GUILD_ID = "1111864772158296074";
-const VOICE_CHANNEL_ID = "1228755494894698496";
+const VOICE_CHANNEL_ID = "1254186619934740512";
 
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user.tag}`);
