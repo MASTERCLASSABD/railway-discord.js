@@ -1,45 +1,34 @@
 require("dotenv").config();
 
-const { Client, GatewayIntentBits, REST, Routes } = require("discord.js");
-const pingCommand = require("./commands/ping.js");
+const { Client, GatewayIntentBits } = require("discord.js");
+const { joinVoiceChannel } = require("@discordjs/voice");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+});
+
+const GUILD_ID = "1111864772158296074";
+const VOICE_CHANNEL_ID = "1228755494894698496";
 
 client.once("clientReady", async () => {
-    console.log(`Logged in as ${client.user.tag}`);
+  console.log(`Logged in as ${client.user.tag}`);
 
-    const clientId = client.user.id;
-    const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const channel = await guild.channels.fetch(VOICE_CHANNEL_ID);
 
-    try {
-        console.log("Registering slash commands...");
+    joinVoiceChannel({
+      channelId: channel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: true,
+      selfMute: false,
+    });
 
-        await rest.put(
-            Routes.applicationCommands(clientId),
-            {
-                body: [
-                    pingCommand.data.toJSON()
-                ]
-            }
-        );
-
-        console.log("Slash commands registered.");
-    } catch (error) {
-        console.error(error);
-    }
+    console.log("Bot connecté dans la voc.");
+  } catch (error) {
+    console.error("Erreur connexion voc :", error);
+  }
 });
-
-client.on("interactionCreate", async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    if (interaction.commandName === pingCommand.data.name) {
-        return pingCommand.execute(interaction);
-    }
-});
-
-if (!process.env.TOKEN) {
-    console.error("Error: Discord bot token is not defined in environment variables. Set the TOKEN environment variable.");
-    process.exit(1);
-}
 
 client.login(process.env.TOKEN);
